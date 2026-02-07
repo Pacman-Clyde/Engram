@@ -9,22 +9,30 @@ use uuid::Uuid;
 
 use crate::models::*;
 
+/// SQLite-backed storage for all engram memory types.
+///
+/// Provides CRUD operations for decisions, tasks, file summaries, and sessions,
+/// plus FTS5 full-text search across all entities.
 pub struct Store {
     conn: Connection,
 }
 
 impl Store {
+    /// Open (or create) a database at the given path, applying schema migrations.
     pub fn open(path: &Path) -> Result<Self> {
         let conn = Connection::open(path).context("failed to open database")?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
             .context("failed to set pragmas")?;
-        conn.execute_batch(schema::CREATE_TABLES).context("failed to create schema")?;
+        conn.execute_batch(schema::CREATE_TABLES)
+            .context("failed to create schema")?;
         Ok(Self { conn })
     }
 
+    /// Open an in-memory database for testing.
     pub fn open_memory() -> Result<Self> {
         let conn = Connection::open_in_memory().context("failed to open in-memory database")?;
-        conn.execute_batch(schema::CREATE_TABLES).context("failed to create schema")?;
+        conn.execute_batch(schema::CREATE_TABLES)
+            .context("failed to create schema")?;
         Ok(Self { conn })
     }
 
@@ -34,16 +42,22 @@ impl Store {
         let mut stmt = self.conn.prepare(
             "SELECT name, description, stack, conventions, created_at, updated_at FROM project_meta LIMIT 1",
         )?;
-        let mut rows = stmt.query_map([], |row| {
-            Ok(ProjectMeta {
-                name: row.get(0)?,
-                description: row.get(1)?,
-                stack: serde_json::from_str(&row.get::<_, String>(2)?).unwrap_or_default(),
-                conventions: serde_json::from_str(&row.get::<_, String>(3)?).unwrap_or_default(),
-                created_at: row.get::<_, String>(4)?.parse().unwrap(),
-                updated_at: row.get::<_, String>(5)?.parse().unwrap(),
-            })
-        })?;
+        let mut rows =
+            stmt.query_map([], |row| {
+                Ok(ProjectMeta {
+                    name: row.get(0)?,
+                    description: row.get(1)?,
+                    stack: serde_json::from_str(&row.get::<_, String>(2)?).unwrap_or_default(),
+                    conventions: serde_json::from_str(&row.get::<_, String>(3)?)
+                        .unwrap_or_default(),
+                    created_at: row.get::<_, String>(4)?.parse().map_err(
+                        |e: chrono::ParseError| rusqlite::Error::ToSqlConversionFailure(e.into()),
+                    )?,
+                    updated_at: row.get::<_, String>(5)?.parse().map_err(
+                        |e: chrono::ParseError| rusqlite::Error::ToSqlConversionFailure(e.into()),
+                    )?,
+                })
+            })?;
         match rows.next() {
             Some(Ok(meta)) => Ok(Some(meta)),
             Some(Err(e)) => Err(e.into()),
@@ -126,8 +140,8 @@ impl Store {
 
     pub fn list_decisions(&self, status: Option<&DecisionStatus>) -> Result<Vec<Decision>> {
         let sql = match status {
-            Some(_) => "SELECT id, title, context, decision, alternatives, tags, status, created_at, updated_at FROM decisions WHERE status = ?1 ORDER BY created_at DESC",
-            None => "SELECT id, title, context, decision, alternatives, tags, status, created_at, updated_at FROM decisions ORDER BY created_at DESC",
+            Some(_) => "SELECT id, title, context, decision, alternatives, tags, status, created_at, updated_at FROM decisions WHERE status = ?1 ORDER BY created_at DESC LIMIT 500",
+            None => "SELECT id, title, context, decision, alternatives, tags, status, created_at, updated_at FROM decisions ORDER BY created_at DESC LIMIT 500",
         };
         let mut stmt = self.conn.prepare(sql)?;
         let rows = if let Some(s) = status {
@@ -158,9 +172,22 @@ impl Store {
             decision: row.get(3)?,
             alternatives: serde_json::from_str(&row.get::<_, String>(4)?).unwrap_or_default(),
             tags: serde_json::from_str(&row.get::<_, String>(5)?).unwrap_or_default(),
-            status: DecisionStatus::from_str(&row.get::<_, String>(6)?).unwrap(),
-            created_at: row.get::<_, String>(7)?.parse().unwrap(),
-            updated_at: row.get::<_, String>(8)?.parse().unwrap(),
+            status: row
+                .get::<_, String>(6)?
+                .parse::<DecisionStatus>()
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?,
+            created_at: row
+                .get::<_, String>(7)?
+                .parse()
+                .map_err(|e: chrono::ParseError| {
+                    rusqlite::Error::ToSqlConversionFailure(e.into())
+                })?,
+            updated_at: row
+                .get::<_, String>(8)?
+                .parse()
+                .map_err(|e: chrono::ParseError| {
+                    rusqlite::Error::ToSqlConversionFailure(e.into())
+                })?,
         })
     }
 
@@ -218,8 +245,8 @@ impl Store {
 
     pub fn list_tasks(&self, status: Option<&TaskStatus>) -> Result<Vec<Task>> {
         let sql = match status {
-            Some(_) => "SELECT id, title, description, status, priority, phase, tags, created_at, updated_at FROM tasks WHERE status = ?1 ORDER BY created_at DESC",
-            None => "SELECT id, title, description, status, priority, phase, tags, created_at, updated_at FROM tasks ORDER BY created_at DESC",
+            Some(_) => "SELECT id, title, description, status, priority, phase, tags, created_at, updated_at FROM tasks WHERE status = ?1 ORDER BY created_at DESC LIMIT 1000",
+            None => "SELECT id, title, description, status, priority, phase, tags, created_at, updated_at FROM tasks ORDER BY created_at DESC LIMIT 1000",
         };
         let mut stmt = self.conn.prepare(sql)?;
         let rows = if let Some(s) = status {
@@ -247,12 +274,28 @@ impl Store {
             id: row.get(0)?,
             title: row.get(1)?,
             description: row.get(2)?,
-            status: TaskStatus::from_str(&row.get::<_, String>(3)?).unwrap(),
-            priority: TaskPriority::from_str(&row.get::<_, String>(4)?).unwrap(),
+            status: row
+                .get::<_, String>(3)?
+                .parse::<TaskStatus>()
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?,
+            priority: row
+                .get::<_, String>(4)?
+                .parse::<TaskPriority>()
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?,
             phase: row.get(5)?,
             tags: serde_json::from_str(&row.get::<_, String>(6)?).unwrap_or_default(),
-            created_at: row.get::<_, String>(7)?.parse().unwrap(),
-            updated_at: row.get::<_, String>(8)?.parse().unwrap(),
+            created_at: row
+                .get::<_, String>(7)?
+                .parse()
+                .map_err(|e: chrono::ParseError| {
+                    rusqlite::Error::ToSqlConversionFailure(e.into())
+                })?,
+            updated_at: row
+                .get::<_, String>(8)?
+                .parse()
+                .map_err(|e: chrono::ParseError| {
+                    rusqlite::Error::ToSqlConversionFailure(e.into())
+                })?,
         })
     }
 
@@ -293,10 +336,12 @@ impl Store {
         )?;
 
         // Update FTS index
-        self.conn.execute(
-            "DELETE FROM search_index WHERE entity_id = ?1 AND entity_type = 'file'",
-            params![id],
-        ).ok(); // Ignore if not exists
+        self.conn
+            .execute(
+                "DELETE FROM search_index WHERE entity_id = ?1 AND entity_type = 'file'",
+                params![id],
+            )
+            .ok(); // Ignore if not exists
         let search_content = format!("{path} {summary}");
         self.conn.execute(
             "INSERT INTO search_index (entity_id, entity_type, body) VALUES (?1, 'file', ?2)",
@@ -318,7 +363,7 @@ impl Store {
 
     pub fn list_file_summaries(&self) -> Result<Vec<FileSummary>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, path, summary, key_types, dependencies, tags, content_hash, created_at, updated_at FROM file_summaries ORDER BY path",
+            "SELECT id, path, summary, key_types, dependencies, tags, content_hash, created_at, updated_at FROM file_summaries ORDER BY path LIMIT 1000",
         )?;
         let rows = stmt.query_map([], Self::map_file_summary)?;
         rows.map(|r| r.map_err(Into::into)).collect()
@@ -345,8 +390,18 @@ impl Store {
             dependencies: serde_json::from_str(&row.get::<_, String>(4)?).unwrap_or_default(),
             tags: serde_json::from_str(&row.get::<_, String>(5)?).unwrap_or_default(),
             content_hash: row.get(6)?,
-            created_at: row.get::<_, String>(7)?.parse().unwrap(),
-            updated_at: row.get::<_, String>(8)?.parse().unwrap(),
+            created_at: row
+                .get::<_, String>(7)?
+                .parse()
+                .map_err(|e: chrono::ParseError| {
+                    rusqlite::Error::ToSqlConversionFailure(e.into())
+                })?,
+            updated_at: row
+                .get::<_, String>(8)?
+                .parse()
+                .map_err(|e: chrono::ParseError| {
+                    rusqlite::Error::ToSqlConversionFailure(e.into())
+                })?,
         })
     }
 
@@ -391,11 +446,15 @@ impl Store {
         }
 
         // Update FTS with handoff content
-        self.conn.execute(
-            "DELETE FROM search_index WHERE entity_id = ?1 AND entity_type = 'session'",
-            params![id],
-        ).ok();
-        let session = self.get_session(id)?.unwrap();
+        self.conn
+            .execute(
+                "DELETE FROM search_index WHERE entity_id = ?1 AND entity_type = 'session'",
+                params![id],
+            )
+            .ok();
+        let session = self
+            .get_session(id)?
+            .ok_or_else(|| anyhow::anyhow!("session not found after update: {id}"))?;
         let search_content = format!("{} {} {handoff}", session.agent, session.goal);
         self.conn.execute(
             "INSERT INTO search_index (entity_id, entity_type, body) VALUES (?1, 'session', ?2)",
@@ -444,8 +503,15 @@ impl Store {
             goal: row.get(2)?,
             handoff: row.get(3)?,
             tags: serde_json::from_str(&row.get::<_, String>(4)?).unwrap_or_default(),
-            started_at: row.get::<_, String>(5)?.parse().unwrap(),
-            ended_at: row.get::<_, Option<String>>(6)?.and_then(|s| s.parse().ok()),
+            started_at: row
+                .get::<_, String>(5)?
+                .parse()
+                .map_err(|e: chrono::ParseError| {
+                    rusqlite::Error::ToSqlConversionFailure(e.into())
+                })?,
+            ended_at: row
+                .get::<_, Option<String>>(6)?
+                .and_then(|s| s.parse().ok()),
         })
     }
 
@@ -514,9 +580,22 @@ impl Store {
         self.conn.execute(
             "INSERT OR REPLACE INTO sessions (id, agent, goal, handoff, tags, started_at, ended_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![s.id, s.agent, s.goal, s.handoff, tags_json, s.started_at.to_rfc3339(), ended_at],
+            params![
+                s.id,
+                s.agent,
+                s.goal,
+                s.handoff,
+                tags_json,
+                s.started_at.to_rfc3339(),
+                ended_at
+            ],
         )?;
-        let search_content = format!("{} {} {}", s.agent, s.goal, s.handoff.as_deref().unwrap_or(""));
+        let search_content = format!(
+            "{} {} {}",
+            s.agent,
+            s.goal,
+            s.handoff.as_deref().unwrap_or("")
+        );
         self.conn.execute(
             "INSERT INTO search_index (entity_id, entity_type, body) VALUES (?1, 'session', ?2)",
             params![s.id, search_content],
@@ -545,7 +624,7 @@ impl Store {
         let mut results = Vec::new();
         if let Some(et) = entity_type {
             let mut stmt = self.conn.prepare(
-                "SELECT entity_id, entity_type FROM search_index WHERE search_index MATCH ?1 AND entity_type = ?2 ORDER BY rank",
+                "SELECT entity_id, entity_type FROM search_index WHERE search_index MATCH ?1 AND entity_type = ?2 ORDER BY rank LIMIT 200",
             )?;
             let rows = stmt.query_map(params![query, et], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
@@ -555,7 +634,7 @@ impl Store {
             }
         } else {
             let mut stmt = self.conn.prepare(
-                "SELECT entity_id, entity_type FROM search_index WHERE search_index MATCH ?1 ORDER BY rank",
+                "SELECT entity_id, entity_type FROM search_index WHERE search_index MATCH ?1 ORDER BY rank LIMIT 200",
             )?;
             let rows = stmt.query_map(params![query], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))

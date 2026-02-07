@@ -5,7 +5,9 @@ use super::generate_context;
 
 fn seed_store() -> Store {
     let store = Store::open_memory().unwrap();
-    store.set_project_meta("TestProject", "A test project").unwrap();
+    store
+        .set_project_meta("TestProject", "A test project")
+        .unwrap();
     store
         .update_project_meta_stack(&["Rust".into(), "SQLite".into()])
         .unwrap();
@@ -23,13 +25,7 @@ fn seed_store() -> Store {
         )
         .unwrap();
     store
-        .add_decision(
-            "Use clap",
-            "Need CLI parsing",
-            "clap derive API",
-            &[],
-            &[],
-        )
+        .add_decision("Use clap", "Need CLI parsing", "clap derive API", &[], &[])
         .unwrap();
 
     store
@@ -42,9 +38,17 @@ fn seed_store() -> Store {
         )
         .unwrap();
     let t2 = store
-        .add_task("Write tests", "Unit tests for CRUD", &TaskPriority::Medium, None, &[])
+        .add_task(
+            "Write tests",
+            "Unit tests for CRUD",
+            &TaskPriority::Medium,
+            None,
+            &[],
+        )
         .unwrap();
-    store.update_task_status(&t2.id, &TaskStatus::InProgress).unwrap();
+    store
+        .update_task_status(&t2.id, &TaskStatus::InProgress)
+        .unwrap();
     let t3 = store
         .add_task("Deploy", "Ship it", &TaskPriority::Low, None, &[])
         .unwrap();
@@ -138,7 +142,7 @@ fn test_standard_build() {
     assert!(ctx.markdown.contains("Write tests"));
     // Done tasks filtered out at standard
     assert!(!ctx.markdown.contains("Deploy")); // the Done task
-    // Last session
+                                               // Last session
     assert!(ctx.markdown.contains("## Last Session"));
     // No file summaries at standard
     assert!(!ctx.markdown.contains("## Files"));

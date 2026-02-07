@@ -1,6 +1,10 @@
+use std::fmt;
+use std::str::FromStr;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// Lifecycle status of an architectural decision.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum DecisionStatus {
@@ -17,8 +21,12 @@ impl DecisionStatus {
             Self::Reverted => "reverted",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> anyhow::Result<Self> {
+impl FromStr for DecisionStatus {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> anyhow::Result<Self> {
         match s {
             "active" => Ok(Self::Active),
             "superseded" => Ok(Self::Superseded),
@@ -28,6 +36,13 @@ impl DecisionStatus {
     }
 }
 
+impl fmt::Display for DecisionStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// An architectural decision with context, rationale, and alternatives.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Decision {
     pub id: String,

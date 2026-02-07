@@ -1,6 +1,10 @@
+use std::fmt;
+use std::str::FromStr;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// Current status of a project task.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskStatus {
@@ -19,8 +23,12 @@ impl TaskStatus {
             Self::Blocked => "blocked",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> anyhow::Result<Self> {
+impl FromStr for TaskStatus {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> anyhow::Result<Self> {
         match s {
             "todo" => Ok(Self::Todo),
             "in_progress" => Ok(Self::InProgress),
@@ -31,6 +39,13 @@ impl TaskStatus {
     }
 }
 
+impl fmt::Display for TaskStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Priority level for task ordering.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskPriority {
@@ -49,8 +64,12 @@ impl TaskPriority {
             Self::Critical => "critical",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> anyhow::Result<Self> {
+impl FromStr for TaskPriority {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> anyhow::Result<Self> {
         match s {
             "low" => Ok(Self::Low),
             "medium" => Ok(Self::Medium),
@@ -61,6 +80,13 @@ impl TaskPriority {
     }
 }
 
+impl fmt::Display for TaskPriority {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// A project task with status, priority, and optional phase grouping.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
     pub id: String,

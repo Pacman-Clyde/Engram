@@ -1,19 +1,23 @@
 use crate::models::*;
 
-pub fn render(
-    role: &ContextRole,
-    level: &ContextLevel,
-    meta: &Option<ProjectMeta>,
-    decisions: &[Decision],
-    tasks: &[Task],
-    files: &[FileSummary],
-    sessions: &[Session],
-    active_session: &Option<Session>,
-) -> String {
+/// All data needed to render a context output.
+pub struct RenderContext<'a> {
+    pub role: &'a ContextRole,
+    pub level: &'a ContextLevel,
+    pub meta: &'a Option<ProjectMeta>,
+    pub decisions: &'a [Decision],
+    pub tasks: &'a [Task],
+    pub files: &'a [FileSummary],
+    pub sessions: &'a [Session],
+    pub active_session: &'a Option<Session>,
+}
+
+/// Render project memory into a markdown string based on role and detail level.
+pub fn render(ctx: &RenderContext<'_>) -> String {
     let mut out = String::new();
 
     // Header
-    if let Some(ref m) = meta {
+    if let Some(ref m) = ctx.meta {
         out.push_str(&format!("# {}\n", m.name));
         if !m.description.is_empty() {
             out.push_str(&format!("{}\n", m.description));
@@ -27,14 +31,24 @@ pub fn render(
     out.push('\n');
 
     // Current session
-    if let Some(ref s) = active_session {
+    if let Some(ref s) = ctx.active_session {
         out.push_str(&format!("**Active session**: {} — {}\n\n", s.agent, s.goal));
     }
 
-    match level {
-        ContextLevel::Minimal => render_minimal(&mut out, role, tasks, sessions),
-        ContextLevel::Standard => render_standard(&mut out, role, decisions, tasks, sessions),
-        ContextLevel::Full => render_full(&mut out, role, meta, decisions, tasks, files, sessions),
+    match ctx.level {
+        ContextLevel::Minimal => render_minimal(&mut out, ctx.role, ctx.tasks, ctx.sessions),
+        ContextLevel::Standard => {
+            render_standard(&mut out, ctx.role, ctx.decisions, ctx.tasks, ctx.sessions)
+        }
+        ContextLevel::Full => render_full(
+            &mut out,
+            ctx.role,
+            ctx.meta,
+            ctx.decisions,
+            ctx.tasks,
+            ctx.files,
+            ctx.sessions,
+        ),
     }
 
     out
@@ -98,7 +112,11 @@ fn render_standard(
             } else {
                 format!(" [{phase}]")
             };
-            out.push_str(&format!("- {marker} {} ({}){phase_str}\n", t.title, t.priority.as_str()));
+            out.push_str(&format!(
+                "- {marker} {} ({}){phase_str}\n",
+                t.title,
+                t.priority.as_str()
+            ));
         }
         out.push('\n');
     }
@@ -106,7 +124,11 @@ fn render_standard(
     // Last session
     if let Some(last) = sessions.first() {
         out.push_str("## Last Session\n");
-        let status = if last.ended_at.is_some() { "ended" } else { "active" };
+        let status = if last.ended_at.is_some() {
+            "ended"
+        } else {
+            "active"
+        };
         out.push_str(&format!("**{}** ({status}): {}\n", last.agent, last.goal));
         if let Some(ref handoff) = last.handoff {
             out.push_str(&format!("Handoff: {handoff}\n"));
@@ -159,7 +181,10 @@ fn render_full(
             out.push_str(&format!("**Context**: {}\n", d.context));
             out.push_str(&format!("**Decision**: {}\n", d.decision));
             if !d.alternatives.is_empty() {
-                out.push_str(&format!("**Alternatives**: {}\n", d.alternatives.join(", ")));
+                out.push_str(&format!(
+                    "**Alternatives**: {}\n",
+                    d.alternatives.join(", ")
+                ));
             }
             out.push('\n');
         }
@@ -181,7 +206,11 @@ fn render_full(
             } else {
                 format!(" [{phase}]")
             };
-            out.push_str(&format!("- {marker} {} ({}){phase_str}\n", t.title, t.priority.as_str()));
+            out.push_str(&format!(
+                "- {marker} {} ({}){phase_str}\n",
+                t.title,
+                t.priority.as_str()
+            ));
             if !t.description.is_empty() {
                 out.push_str(&format!("  {}\n", t.description));
             }
@@ -190,7 +219,11 @@ fn render_full(
     }
 
     // File summaries (for review and build roles)
-    if matches!(role, ContextRole::Build | ContextRole::Review | ContextRole::Debug) && !files.is_empty() {
+    if matches!(
+        role,
+        ContextRole::Build | ContextRole::Review | ContextRole::Debug
+    ) && !files.is_empty()
+    {
         out.push_str("## Files\n");
         for f in files {
             out.push_str(&format!("- **{}**: {}\n", f.path, f.summary));
@@ -205,7 +238,11 @@ fn render_full(
     if !sessions.is_empty() {
         out.push_str("## Session History\n");
         for s in sessions {
-            let status = if s.ended_at.is_some() { "ended" } else { "active" };
+            let status = if s.ended_at.is_some() {
+                "ended"
+            } else {
+                "active"
+            };
             out.push_str(&format!(
                 "- **{}** ({status}, {}): {}\n",
                 s.agent,

@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// Documentation of a source file's purpose, key types, and dependencies.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileSummary {
     pub id: String,

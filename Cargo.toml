@@ -3,6 +3,10 @@ name = "engram"
 version = "0.1.0"
 edition = "2021"
 description = "AI agent memory system - structured, token-efficient project context"
+license = "MIT"
+repository = "https://github.com/gasmanc/Engram"
+keywords = ["ai", "mcp", "context", "memory", "agent"]
+categories = ["command-line-utilities", "development-tools"]
 
 [lib]
 name = "engram"
@@ -26,3 +30,7 @@ sha2 = "0.10"
 thiserror = "2.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-std"] }
 uuid = { version = "1", features = ["v4"] }
+
+[profile.release]
+lto = true
+strip = true

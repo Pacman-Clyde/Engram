@@ -12,13 +12,13 @@ pub fn run(action: SessionAction) -> Result<()> {
             if let Some(active) = store.get_active_session()? {
                 anyhow::bail!(
                     "session already active: {} ({}). End it first with `engram session end`",
-                    &active.id[..8],
+                    &active.id[..8.min(active.id.len())],
                     active.goal
                 );
             }
             let tags = parse_csv(&tags);
             let s = store.start_session(&agent, &goal, &tags)?;
-            println!("Session started: {}", &s.id[..8]);
+            println!("Session started: {}", &s.id[..8.min(s.id.len())]);
             println!("  Agent: {}", s.agent);
             println!("  Goal: {}", s.goal);
         }
@@ -27,7 +27,7 @@ pub fn run(action: SessionAction) -> Result<()> {
             match active {
                 Some(s) => {
                     store.end_session(&s.id, &handoff)?;
-                    println!("Session ended: {}", &s.id[..8]);
+                    println!("Session ended: {}", &s.id[..8.min(s.id.len())]);
                     println!("  Handoff: {handoff}");
                 }
                 None => {
@@ -42,8 +42,12 @@ pub fn run(action: SessionAction) -> Result<()> {
                 return Ok(());
             }
             for s in &sessions {
-                let short_id = &s.id[..8];
-                let status = if s.ended_at.is_some() { "ended" } else { "active" };
+                let short_id = &s.id[..8.min(s.id.len())];
+                let status = if s.ended_at.is_some() {
+                    "ended"
+                } else {
+                    "active"
+                };
                 println!(
                     "[{short_id}] ({status}) {} - {} ({})",
                     s.agent,
@@ -51,8 +55,9 @@ pub fn run(action: SessionAction) -> Result<()> {
                     s.started_at.format("%Y-%m-%d %H:%M"),
                 );
                 if let Some(ref handoff) = s.handoff {
-                    let preview = if handoff.len() > 80 {
-                        format!("{}...", &handoff[..80])
+                    let preview = if handoff.chars().count() > 80 {
+                        let truncated: String = handoff.chars().take(80).collect();
+                        format!("{truncated}...")
                     } else {
                         handoff.clone()
                     };

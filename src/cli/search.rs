@@ -21,11 +21,7 @@ pub fn run(query: &str, entity_type: Option<&str>) -> Result<()> {
             }
             "task" => {
                 if let Some(t) = store.get_task(id)? {
-                    println!(
-                        "[task:{short_id}] ({}) {} ",
-                        t.status.as_str(),
-                        t.title,
-                    );
+                    println!("[task:{short_id}] ({}) {} ", t.status.as_str(), t.title,);
                 }
             }
             "file" => {
@@ -37,7 +33,11 @@ pub fn run(query: &str, entity_type: Option<&str>) -> Result<()> {
             }
             "session" => {
                 if let Some(s) = store.get_session(id)? {
-                    let status = if s.ended_at.is_some() { "ended" } else { "active" };
+                    let status = if s.ended_at.is_some() {
+                        "ended"
+                    } else {
+                        "active"
+                    };
                     println!("[session:{short_id}] ({status}) {} - {}", s.agent, s.goal);
                 }
             }

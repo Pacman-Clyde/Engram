@@ -4,7 +4,9 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetContextParams {
     /// Role filter: build, review, debug, resume
-    #[schemars(description = "Context role: build (tasks + architecture), review (conventions + files), debug (recent changes + issues), resume (last session handoff)")]
+    #[schemars(
+        description = "Context role: build (tasks + architecture), review (conventions + files), debug (recent changes + issues), resume (last session handoff)"
+    )]
     pub role: Option<String>,
     /// Detail level: minimal (~200 tokens), standard (~1000 tokens), full (all details)
     #[schemars(description = "Detail level: minimal, standard, full. Defaults to standard.")]

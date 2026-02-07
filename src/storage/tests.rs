@@ -10,17 +10,23 @@ fn test_project_meta() {
 
     assert!(store.get_project_meta().unwrap().is_none());
 
-    store.set_project_meta("TestProject", "A test project").unwrap();
+    store
+        .set_project_meta("TestProject", "A test project")
+        .unwrap();
     let meta = store.get_project_meta().unwrap().unwrap();
     assert_eq!(meta.name, "TestProject");
     assert_eq!(meta.description, "A test project");
     assert!(meta.stack.is_empty());
 
-    store.update_project_meta_stack(&["Rust".into(), "SQLite".into()]).unwrap();
+    store
+        .update_project_meta_stack(&["Rust".into(), "SQLite".into()])
+        .unwrap();
     let meta = store.get_project_meta().unwrap().unwrap();
     assert_eq!(meta.stack, vec!["Rust", "SQLite"]);
 
-    store.update_project_meta_conventions(&["snake_case".into()]).unwrap();
+    store
+        .update_project_meta_conventions(&["snake_case".into()])
+        .unwrap();
     let meta = store.get_project_meta().unwrap().unwrap();
     assert_eq!(meta.conventions, vec!["snake_case"]);
 
@@ -58,7 +64,9 @@ fn test_decisions_crud() {
     let active = store.list_decisions(Some(&DecisionStatus::Active)).unwrap();
     assert_eq!(active.len(), 2);
 
-    let superseded = store.list_decisions(Some(&DecisionStatus::Superseded)).unwrap();
+    let superseded = store
+        .list_decisions(Some(&DecisionStatus::Superseded))
+        .unwrap();
     assert_eq!(superseded.len(), 0);
 
     // Get by ID
@@ -100,7 +108,9 @@ fn test_tasks_crud() {
     assert_eq!(todos.len(), 2);
 
     // Update status
-    store.update_task_status(&t1.id, &TaskStatus::InProgress).unwrap();
+    store
+        .update_task_status(&t1.id, &TaskStatus::InProgress)
+        .unwrap();
     let updated = store.get_task(&t1.id).unwrap().unwrap();
     assert_eq!(updated.status, TaskStatus::InProgress);
 
@@ -149,11 +159,17 @@ fn test_file_summaries() {
     let list = store.list_file_summaries().unwrap();
     assert_eq!(list.len(), 1); // Still one, not two
 
-    let fetched = store.get_file_summary_by_path("src/main.rs").unwrap().unwrap();
+    let fetched = store
+        .get_file_summary_by_path("src/main.rs")
+        .unwrap()
+        .unwrap();
     assert_eq!(fetched.summary, "Updated entry point");
     assert_eq!(fetched.content_hash, "def456");
 
-    assert!(store.get_file_summary_by_path("nonexistent.rs").unwrap().is_none());
+    assert!(store
+        .get_file_summary_by_path("nonexistent.rs")
+        .unwrap()
+        .is_none());
 }
 
 #[test]
@@ -171,10 +187,15 @@ fn test_sessions() {
     assert_eq!(active.id, s1.id);
 
     // End session
-    store.end_session(&s1.id, "Completed CRUD. Next: implement FTS5.").unwrap();
+    store
+        .end_session(&s1.id, "Completed CRUD. Next: implement FTS5.")
+        .unwrap();
     let ended = store.get_session(&s1.id).unwrap().unwrap();
     assert!(ended.ended_at.is_some());
-    assert_eq!(ended.handoff.as_deref(), Some("Completed CRUD. Next: implement FTS5."));
+    assert_eq!(
+        ended.handoff.as_deref(),
+        Some("Completed CRUD. Next: implement FTS5.")
+    );
 
     // No active session now
     assert!(store.get_active_session().unwrap().is_none());
@@ -194,10 +215,22 @@ fn test_search() {
     let store = test_store();
 
     store
-        .add_decision("Use rusqlite", "Need SQL database", "rusqlite bundled", &[], &[])
+        .add_decision(
+            "Use rusqlite",
+            "Need SQL database",
+            "rusqlite bundled",
+            &[],
+            &[],
+        )
         .unwrap();
     store
-        .add_task("Build storage", "Implement SQLite layer", &TaskPriority::High, None, &[])
+        .add_task(
+            "Build storage",
+            "Implement SQLite layer",
+            &TaskPriority::High,
+            None,
+            &[],
+        )
         .unwrap();
 
     // Search across all types

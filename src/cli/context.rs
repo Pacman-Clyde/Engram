@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::Result;
 
 use crate::cli::init::open_store;

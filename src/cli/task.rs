@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::Result;
 
 use super::{parse_csv, TaskAction};
@@ -33,7 +35,11 @@ pub fn run(action: TaskAction) -> Result<()> {
             match found {
                 Some(t) => {
                     store.update_task_status(&t.id, &status)?;
-                    println!("Task {} updated to {}", &t.id[..8], status.as_str());
+                    println!(
+                        "Task {} updated to {}",
+                        &t.id[..8.min(t.id.len())],
+                        status.as_str()
+                    );
                 }
                 None => {
                     anyhow::bail!("task not found with ID prefix: {id}");
@@ -41,17 +47,14 @@ pub fn run(action: TaskAction) -> Result<()> {
             }
         }
         TaskAction::List { status } => {
-            let status_filter = status
-                .as_deref()
-                .map(TaskStatus::from_str)
-                .transpose()?;
+            let status_filter = status.as_deref().map(TaskStatus::from_str).transpose()?;
             let tasks = store.list_tasks(status_filter.as_ref())?;
             if tasks.is_empty() {
                 println!("No tasks found.");
                 return Ok(());
             }
             for t in &tasks {
-                let short_id = &t.id[..8];
+                let short_id = &t.id[..8.min(t.id.len())];
                 let phase = t.phase.as_deref().unwrap_or("-");
                 println!(
                     "[{short_id}] ({}/{}) {} [{}]",

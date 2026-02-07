@@ -7,7 +7,14 @@ use anyhow::Result;
 use crate::models::*;
 use crate::storage::Store;
 
-pub fn generate_context(store: &Store, role: &ContextRole, level: &ContextLevel) -> Result<ContextOutput> {
+/// Generate role-filtered, level-appropriate project context from stored memory.
+///
+/// Auto-starts a session if none is active.
+pub fn generate_context(
+    store: &Store,
+    role: &ContextRole,
+    level: &ContextLevel,
+) -> Result<ContextOutput> {
     let meta = store.get_project_meta()?;
     let decisions = store.list_decisions(Some(&DecisionStatus::Active))?;
     let tasks = store.list_tasks(None)?;
@@ -23,7 +30,16 @@ pub fn generate_context(store: &Store, role: &ContextRole, level: &ContextLevel)
         }
     };
 
-    let markdown = renderer::render(role, level, &meta, &decisions, &tasks, &files, &sessions, &active_session);
+    let markdown = renderer::render(&renderer::RenderContext {
+        role,
+        level,
+        meta: &meta,
+        decisions: &decisions,
+        tasks: &tasks,
+        files: &files,
+        sessions: &sessions,
+        active_session: &active_session,
+    });
     let estimated_tokens = estimate_tokens(&markdown);
 
     Ok(ContextOutput {

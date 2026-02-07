@@ -33,8 +33,9 @@ pub fn run() -> Result<()> {
     } else if let Some(last) = sessions.first() {
         print!("Last session: {} - {}", last.agent, last.goal);
         if let Some(ref handoff) = last.handoff {
-            let preview = if handoff.len() > 60 {
-                format!("{}...", &handoff[..60])
+            let preview = if handoff.chars().count() > 60 {
+                let truncated: String = handoff.chars().take(60).collect();
+                format!("{truncated}...")
             } else {
                 handoff.clone()
             };
@@ -80,7 +81,13 @@ pub fn run() -> Result<()> {
         println!("  > {}{phase}", t.title);
     }
 
-    println!("Decisions: {} active", decisions.iter().filter(|d| d.status == crate::models::DecisionStatus::Active).count());
+    println!(
+        "Decisions: {} active",
+        decisions
+            .iter()
+            .filter(|d| d.status == crate::models::DecisionStatus::Active)
+            .count()
+    );
     println!("Files: {} summarized", files.len());
     println!("Sessions: {} recorded", sessions.len());
 

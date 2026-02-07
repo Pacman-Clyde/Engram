@@ -1,11 +1,19 @@
+use std::fmt;
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize};
 
+/// Role filter that controls which memory types are prioritized in context output.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum ContextRole {
+    /// Architecture and task focus.
     Build,
+    /// Conventions and file summaries.
     Review,
+    /// Recent changes and completed tasks.
     Debug,
+    /// Last session handoff for continuity.
     Resume,
 }
 
@@ -18,8 +26,12 @@ impl ContextRole {
             Self::Resume => "resume",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> anyhow::Result<Self> {
+impl FromStr for ContextRole {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> anyhow::Result<Self> {
         match s {
             "build" => Ok(Self::Build),
             "review" => Ok(Self::Review),
@@ -30,11 +42,21 @@ impl ContextRole {
     }
 }
 
+impl fmt::Display for ContextRole {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Detail level controlling how much information is included in context output.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum ContextLevel {
+    /// ~50-200 tokens: next task and last handoff only.
     Minimal,
+    /// ~200-1000 tokens: decisions, active tasks, last session.
     Standard,
+    /// All details: conventions, full task list, file summaries, session history.
     Full,
 }
 
@@ -46,8 +68,12 @@ impl ContextLevel {
             Self::Full => "full",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> anyhow::Result<Self> {
+impl FromStr for ContextLevel {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> anyhow::Result<Self> {
         match s {
             "minimal" => Ok(Self::Minimal),
             "standard" => Ok(Self::Standard),
@@ -57,10 +83,19 @@ impl ContextLevel {
     }
 }
 
+impl fmt::Display for ContextLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Result of context generation, containing the rendered markdown and metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextOutput {
     pub role: ContextRole,
     pub level: ContextLevel,
+    /// Rendered markdown context string.
     pub markdown: String,
+    /// Estimated token count (word-based heuristic).
     pub estimated_tokens: usize,
 }

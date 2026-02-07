@@ -23,6 +23,11 @@ pub fn run_export(path: Option<&str>) -> Result<()> {
     match path {
         Some(p) => {
             std::fs::write(p, &json)?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(p, std::fs::Permissions::from_mode(0o600))?;
+            }
             println!("Exported to {p}");
         }
         None => {
@@ -103,7 +108,9 @@ mod tests {
     #[test]
     fn test_export_import_roundtrip() {
         let store1 = Store::open_memory().unwrap();
-        store1.set_project_meta("TestExport", "export test").unwrap();
+        store1
+            .set_project_meta("TestExport", "export test")
+            .unwrap();
         store1
             .add_decision("Dec1", "ctx", "decided", &[], &["tag1".into()])
             .unwrap();

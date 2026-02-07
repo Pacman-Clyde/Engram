@@ -1,24 +1,21 @@
 pub mod tools;
 
-use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use rmcp::{
-    ErrorData as McpError, ServerHandler, ServiceExt,
     handler::server::router::tool::ToolRouter,
     handler::server::wrapper::Parameters,
     model::{
-        CallToolResult, Content, Implementation, ProtocolVersion,
-        ServerCapabilities, ServerInfo,
+        CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo,
     },
     tool, tool_handler, tool_router,
     transport::stdio,
+    ErrorData as McpError, ServerHandler, ServiceExt,
 };
 
 use crate::engine;
-use crate::models::{
-    ContextLevel, ContextRole, TaskStatus as EngramTaskStatus,
-};
+use crate::models::{ContextLevel, ContextRole, TaskStatus as EngramTaskStatus};
 use crate::storage::Store;
 use tools::*;
 
@@ -41,25 +38,22 @@ impl EngramServer {
     where
         F: FnOnce(&Store) -> anyhow::Result<T>,
     {
-        let store = self.store.lock().map_err(|e| {
-            McpError::internal_error(format!("lock poisoned: {e}"), None)
-        })?;
+        let store = self
+            .store
+            .lock()
+            .map_err(|e| McpError::internal_error(format!("lock poisoned: {e}"), None))?;
         f(&store).map_err(|e| McpError::internal_error(format!("{e:#}"), None))
     }
 
-    #[tool(description = "Get token-efficient project context. Returns role-filtered, level-appropriate markdown summary of the project state including decisions, tasks, files, and session history.")]
+    #[tool(
+        description = "Get token-efficient project context. Returns role-filtered, level-appropriate markdown summary of the project state including decisions, tasks, files, and session history."
+    )]
     fn get_context(
         &self,
         Parameters(params): Parameters<GetContextParams>,
     ) -> Result<CallToolResult, McpError> {
-        let role = params
-            .role
-            .as_deref()
-            .unwrap_or("build");
-        let level = params
-            .level
-            .as_deref()
-            .unwrap_or("standard");
+        let role = params.role.as_deref().unwrap_or("build");
+        let level = params.level.as_deref().unwrap_or("standard");
 
         let role = ContextRole::from_str(role)
             .map_err(|e| McpError::invalid_params(format!("{e}"), None))?;
@@ -68,10 +62,14 @@ impl EngramServer {
 
         let output = self.with_store(|store| engine::generate_context(store, &role, &level))?;
 
-        Ok(CallToolResult::success(vec![Content::text(output.markdown)]))
+        Ok(CallToolResult::success(vec![Content::text(
+            output.markdown,
+        )]))
     }
 
-    #[tool(description = "Record an architectural decision with context, rationale, and alternatives considered.")]
+    #[tool(
+        description = "Record an architectural decision with context, rationale, and alternatives considered."
+    )]
     fn add_decision(
         &self,
         Parameters(params): Parameters<AddDecisionParams>,
@@ -80,12 +78,19 @@ impl EngramServer {
         let tags = params.tags.unwrap_or_default();
 
         let decision = self.with_store(|store| {
-            store.add_decision(&params.title, &params.context, &params.decision, &alts, &tags)
+            store.add_decision(
+                &params.title,
+                &params.context,
+                &params.decision,
+                &alts,
+                &tags,
+            )
         })?;
 
         Ok(CallToolResult::success(vec![Content::text(format!(
             "Decision recorded: {} ({})",
-            decision.title, &decision.id[..8]
+            decision.title,
+            &decision.id[..8.min(decision.id.len())]
         ))]))
     }
 
@@ -107,14 +112,16 @@ impl EngramServer {
             Ok(format!(
                 "Task '{}' ({}) updated to {}",
                 found.title,
-                &found.id[..8],
+                &found.id[..8.min(found.id.len())],
                 status.as_str()
             ))
         })
         .map(|msg| CallToolResult::success(vec![Content::text(msg)]))
     }
 
-    #[tool(description = "Add or update a file summary. Tracks what each file does, key types, and dependencies.")]
+    #[tool(
+        description = "Add or update a file summary. Tracks what each file does, key types, and dependencies."
+    )]
     fn summarize_file(
         &self,
         Parameters(params): Parameters<SummarizeFileParams>,
@@ -162,7 +169,7 @@ impl EngramServer {
             if let Some(active) = store.get_active_session()? {
                 anyhow::bail!(
                     "session already active: {} ({}) - end it first",
-                    &active.id[..8],
+                    &active.id[..8.min(active.id.len())],
                     active.goal
                 );
             }
@@ -171,7 +178,7 @@ impl EngramServer {
 
         Ok(CallToolResult::success(vec![Content::text(format!(
             "Session started: {} (agent: {}, goal: {})",
-            &session.id[..8],
+            &session.id[..8.min(session.id.len())],
             session.agent,
             session.goal
         ))]))
@@ -187,13 +194,18 @@ impl EngramServer {
                 .get_active_session()?
                 .ok_or_else(|| anyhow::anyhow!("no active session to end"))?;
             store.end_session(&active.id, &params.handoff)?;
-            Ok(format!("Session ended: {} - handoff recorded", &active.id[..8]))
+            Ok(format!(
+                "Session ended: {} - handoff recorded",
+                &active.id[..8.min(active.id.len())]
+            ))
         })?;
 
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
-    #[tool(description = "Full-text search across all memory: decisions, tasks, file summaries, sessions.")]
+    #[tool(
+        description = "Full-text search across all memory: decisions, tasks, file summaries, sessions."
+    )]
     fn search(
         &self,
         Parameters(params): Parameters<SearchParams>,
@@ -224,8 +236,15 @@ impl EngramServer {
                     }
                     "session" => {
                         if let Some(s) = store.get_session(id)? {
-                            let status = if s.ended_at.is_some() { "ended" } else { "active" };
-                            format!("[session:{}] ({}) {} - {}", short_id, status, s.agent, s.goal)
+                            let status = if s.ended_at.is_some() {
+                                "ended"
+                            } else {
+                                "active"
+                            };
+                            format!(
+                                "[session:{}] ({}) {} - {}",
+                                short_id, status, s.agent, s.goal
+                            )
                         } else {
                             format!("[session:{}]", short_id)
                         }
@@ -267,16 +286,8 @@ impl ServerHandler for EngramServer {
     }
 }
 
-pub fn find_engram_db() -> anyhow::Result<PathBuf> {
-    let dir = PathBuf::from(".engram");
-    if !dir.exists() {
-        anyhow::bail!("not an engram project (run `engram init` first)");
-    }
-    Ok(dir.join("memory.db"))
-}
-
 pub async fn serve() -> anyhow::Result<()> {
-    let db_path = find_engram_db()?;
+    let db_path = crate::find_engram_db()?;
     let store = Store::open(&db_path)?;
     let server = EngramServer::new(store);
 

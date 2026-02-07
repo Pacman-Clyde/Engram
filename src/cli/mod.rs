@@ -221,7 +221,12 @@ pub enum SessionAction {
 
 pub fn parse_csv(s: &Option<String>) -> Vec<String> {
     s.as_deref()
-        .map(|s| s.split(',').map(|t| t.trim().to_string()).filter(|t| !t.is_empty()).collect())
+        .map(|s| {
+            s.split(',')
+                .map(|t| t.trim().to_string())
+                .filter(|t| !t.is_empty())
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -244,4 +249,3 @@ pub fn dispatch(cli: Cli) -> anyhow::Result<()> {
         }
     }
 }
-

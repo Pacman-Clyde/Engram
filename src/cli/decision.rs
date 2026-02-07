@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::Result;
 
 use super::{parse_csv, DecisionAction};
@@ -32,7 +34,7 @@ pub fn run(action: DecisionAction) -> Result<()> {
                 return Ok(());
             }
             for d in &decisions {
-                let short_id = &d.id[..8];
+                let short_id = &d.id[..8.min(d.id.len())];
                 println!(
                     "[{short_id}] ({}) {} - {}",
                     d.status.as_str(),
