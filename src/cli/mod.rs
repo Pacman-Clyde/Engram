@@ -4,6 +4,7 @@ pub mod file;
 pub mod init;
 pub mod search;
 pub mod session;
+pub mod status;
 pub mod task;
 
 use clap::{Parser, Subcommand};
@@ -213,11 +214,7 @@ pub fn dispatch(cli: Cli) -> anyhow::Result<()> {
         Commands::Session { action } => session::run(action),
         Commands::Search { query, entity_type } => search::run(&query, entity_type.as_deref()),
         Commands::Context { role, level } => context::run(&role, &level),
-        Commands::Status => {
-            // Stub for Phase 2
-            println!("engram status: not yet implemented");
-            Ok(())
-        }
+        Commands::Status => status::run(),
         Commands::Serve => {
             // Stub for Phase 3
             println!("engram serve: not yet implemented (requires MCP dependencies)");

@@ -1,4 +1,6 @@
 pub mod renderer;
+#[cfg(test)]
+mod tests;
 
 use anyhow::Result;
 
