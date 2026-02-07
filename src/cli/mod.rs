@@ -1,5 +1,7 @@
+pub mod completions;
 pub mod context;
 pub mod decision;
+pub mod export;
 pub mod file;
 pub mod init;
 pub mod search;
@@ -73,6 +75,24 @@ pub enum Commands {
 
     /// Compact project status overview
     Status,
+
+    /// Export all engram data to JSON
+    Export {
+        /// Output file path (prints to stdout if omitted)
+        path: Option<String>,
+    },
+
+    /// Import engram data from JSON
+    Import {
+        /// Input file path
+        path: String,
+    },
+
+    /// Generate shell completions
+    Completions {
+        /// Shell: bash, zsh, fish, elvish, powershell
+        shell: String,
+    },
 
     /// Start MCP server (stdio transport)
     Serve,
@@ -215,6 +235,9 @@ pub fn dispatch(cli: Cli) -> anyhow::Result<()> {
         Commands::Search { query, entity_type } => search::run(&query, entity_type.as_deref()),
         Commands::Context { role, level } => context::run(&role, &level),
         Commands::Status => status::run(),
+        Commands::Export { path } => export::run_export(path.as_deref()),
+        Commands::Import { path } => export::run_import(&path),
+        Commands::Completions { shell } => completions::run(&shell),
         Commands::Serve => {
             let rt = tokio::runtime::Runtime::new()?;
             rt.block_on(crate::mcp::serve())

@@ -257,9 +257,27 @@ fn test_empty_project() {
     let ctx = generate_context(&store, &ContextRole::Build, &ContextLevel::Standard).unwrap();
 
     assert!(ctx.markdown.contains("# (unnamed project)"));
+    // Auto-start session should have created one
+    assert!(ctx.markdown.contains("**Active session**: auto"));
     assert!(!ctx.markdown.contains("## Decisions"));
     assert!(!ctx.markdown.contains("## Tasks"));
-    assert!(!ctx.markdown.contains("## Last Session"));
+}
+
+#[test]
+fn test_auto_start_session() {
+    let store = Store::open_memory().unwrap();
+    store.set_project_meta("Test", "").unwrap();
+    // No sessions exist
+    assert!(store.get_active_session().unwrap().is_none());
+
+    // generate_context should auto-start a session
+    let ctx = generate_context(&store, &ContextRole::Debug, &ContextLevel::Minimal).unwrap();
+    assert!(ctx.markdown.contains("**Active session**: auto"));
+
+    // Session should now exist in the store
+    let active = store.get_active_session().unwrap().unwrap();
+    assert_eq!(active.agent, "auto");
+    assert!(active.goal.contains("debug"));
 }
 
 #[test]

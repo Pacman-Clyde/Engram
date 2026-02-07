@@ -449,6 +449,96 @@ impl Store {
         })
     }
 
+    // ── Import helpers ──
+
+    pub fn import_decision(&self, d: &Decision) -> Result<()> {
+        let alts_json = serde_json::to_string(&d.alternatives)?;
+        let tags_json = serde_json::to_string(&d.tags)?;
+        self.conn.execute(
+            "INSERT OR REPLACE INTO decisions (id, title, context, decision, alternatives, tags, status, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                d.id, d.title, d.context, d.decision, alts_json, tags_json,
+                d.status.as_str(), d.created_at.to_rfc3339(), d.updated_at.to_rfc3339()
+            ],
+        )?;
+        let search_content = format!("{} {} {}", d.title, d.context, d.decision);
+        self.conn.execute(
+            "INSERT INTO search_index (entity_id, entity_type, body) VALUES (?1, 'decision', ?2)",
+            params![d.id, search_content],
+        )?;
+        Ok(())
+    }
+
+    pub fn import_task(&self, t: &Task) -> Result<()> {
+        let tags_json = serde_json::to_string(&t.tags)?;
+        self.conn.execute(
+            "INSERT OR REPLACE INTO tasks (id, title, description, status, priority, phase, tags, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                t.id, t.title, t.description, t.status.as_str(), t.priority.as_str(),
+                t.phase, tags_json, t.created_at.to_rfc3339(), t.updated_at.to_rfc3339()
+            ],
+        )?;
+        let search_content = format!("{} {}", t.title, t.description);
+        self.conn.execute(
+            "INSERT INTO search_index (entity_id, entity_type, body) VALUES (?1, 'task', ?2)",
+            params![t.id, search_content],
+        )?;
+        Ok(())
+    }
+
+    pub fn import_file_summary(&self, f: &FileSummary) -> Result<()> {
+        let key_types_json = serde_json::to_string(&f.key_types)?;
+        let deps_json = serde_json::to_string(&f.dependencies)?;
+        let tags_json = serde_json::to_string(&f.tags)?;
+        self.conn.execute(
+            "INSERT OR REPLACE INTO file_summaries (id, path, summary, key_types, dependencies, tags, content_hash, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                f.id, f.path, f.summary, key_types_json, deps_json, tags_json,
+                f.content_hash, f.created_at.to_rfc3339(), f.updated_at.to_rfc3339()
+            ],
+        )?;
+        let search_content = format!("{} {}", f.path, f.summary);
+        self.conn.execute(
+            "INSERT INTO search_index (entity_id, entity_type, body) VALUES (?1, 'file', ?2)",
+            params![f.id, search_content],
+        )?;
+        Ok(())
+    }
+
+    pub fn import_session(&self, s: &Session) -> Result<()> {
+        let tags_json = serde_json::to_string(&s.tags)?;
+        let ended_at = s.ended_at.map(|t| t.to_rfc3339());
+        self.conn.execute(
+            "INSERT OR REPLACE INTO sessions (id, agent, goal, handoff, tags, started_at, ended_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![s.id, s.agent, s.goal, s.handoff, tags_json, s.started_at.to_rfc3339(), ended_at],
+        )?;
+        let search_content = format!("{} {} {}", s.agent, s.goal, s.handoff.as_deref().unwrap_or(""));
+        self.conn.execute(
+            "INSERT INTO search_index (entity_id, entity_type, body) VALUES (?1, 'session', ?2)",
+            params![s.id, search_content],
+        )?;
+        Ok(())
+    }
+
+    pub fn import_project_meta(&self, meta: &ProjectMeta) -> Result<()> {
+        self.conn.execute("DELETE FROM project_meta", [])?;
+        let stack_json = serde_json::to_string(&meta.stack)?;
+        let conv_json = serde_json::to_string(&meta.conventions)?;
+        self.conn.execute(
+            "INSERT INTO project_meta (name, description, stack, conventions, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                meta.name, meta.description, stack_json, conv_json,
+                meta.created_at.to_rfc3339(), meta.updated_at.to_rfc3339()
+            ],
+        )?;
+        Ok(())
+    }
+
     // ── Search ──
 
     pub fn search(&self, query: &str, entity_type: Option<&str>) -> Result<Vec<(String, String)>> {

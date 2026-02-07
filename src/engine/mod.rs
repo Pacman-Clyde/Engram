@@ -13,10 +13,18 @@ pub fn generate_context(store: &Store, role: &ContextRole, level: &ContextLevel)
     let tasks = store.list_tasks(None)?;
     let files = store.list_file_summaries()?;
     let sessions = store.list_sessions(5)?;
-    let active_session = store.get_active_session()?;
+
+    // Auto-start session if none active
+    let active_session = match store.get_active_session()? {
+        Some(s) => Some(s),
+        None => {
+            let goal = format!("{} context request", role.as_str());
+            Some(store.start_session("auto", &goal, &[])?)
+        }
+    };
 
     let markdown = renderer::render(role, level, &meta, &decisions, &tasks, &files, &sessions, &active_session);
-    let estimated_tokens = markdown.len() / 4; // rough estimate: 4 chars per token
+    let estimated_tokens = estimate_tokens(&markdown);
 
     Ok(ContextOutput {
         role: role.clone(),
@@ -24,4 +32,14 @@ pub fn generate_context(store: &Store, role: &ContextRole, level: &ContextLevel)
         markdown,
         estimated_tokens,
     })
+}
+
+/// Estimate token count using word-based heuristic.
+/// English text with markdown averages ~1.3 tokens per word.
+/// Markdown symbols and punctuation add overhead.
+pub fn estimate_tokens(text: &str) -> usize {
+    let words = text.split_whitespace().count();
+    let non_ascii_chars = text.chars().filter(|c| !c.is_ascii()).count();
+    // ~1.3 tokens per word + 1 token per non-ASCII char (emoji, etc.)
+    ((words as f64 * 1.3) as usize) + non_ascii_chars
 }

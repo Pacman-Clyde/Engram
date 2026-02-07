@@ -16,6 +16,7 @@ path = "src/main.rs"
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
 rmcp = { version = "0.14", features = ["server", "transport-io", "macros", "schemars"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 schemars = "1.0"
