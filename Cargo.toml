@@ -1,0 +1,24 @@
+[package]
+name = "engram"
+version = "0.1.0"
+edition = "2021"
+description = "AI agent memory system - structured, token-efficient project context"
+
+[lib]
+name = "engram"
+path = "src/lib.rs"
+
+[[bin]]
+name = "engram"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+thiserror = "2.0"
+uuid = { version = "1", features = ["v4"] }
