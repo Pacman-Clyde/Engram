@@ -216,9 +216,8 @@ pub fn dispatch(cli: Cli) -> anyhow::Result<()> {
         Commands::Context { role, level } => context::run(&role, &level),
         Commands::Status => status::run(),
         Commands::Serve => {
-            // Stub for Phase 3
-            println!("engram serve: not yet implemented (requires MCP dependencies)");
-            Ok(())
+            let rt = tokio::runtime::Runtime::new()?;
+            rt.block_on(crate::mcp::serve())
         }
     }
 }
