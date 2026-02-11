@@ -381,6 +381,18 @@ impl Store {
         }
     }
 
+    pub fn get_file_summary(&self, id: &str) -> Result<Option<FileSummary>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, path, summary, key_types, dependencies, tags, content_hash, created_at, updated_at FROM file_summaries WHERE id = ?1",
+        )?;
+        let mut rows = stmt.query_map(params![id], Self::map_file_summary)?;
+        match rows.next() {
+            Some(Ok(f)) => Ok(Some(f)),
+            Some(Err(e)) => Err(e.into()),
+            None => Ok(None),
+        }
+    }
+
     fn map_file_summary(row: &rusqlite::Row<'_>) -> rusqlite::Result<FileSummary> {
         Ok(FileSummary {
             id: row.get(0)?,

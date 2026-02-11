@@ -165,11 +165,14 @@ fn test_file_summaries() {
         .unwrap();
     assert_eq!(fetched.summary, "Updated entry point");
     assert_eq!(fetched.content_hash, "def456");
+    let fetched_by_id = store.get_file_summary(&fetched.id).unwrap().unwrap();
+    assert_eq!(fetched_by_id.path, "src/main.rs");
 
     assert!(store
         .get_file_summary_by_path("nonexistent.rs")
         .unwrap()
         .is_none());
+    assert!(store.get_file_summary("nonexistent-id").unwrap().is_none());
 }
 
 #[test]

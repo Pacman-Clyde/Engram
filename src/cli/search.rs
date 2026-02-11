@@ -25,7 +25,7 @@ pub fn run(query: &str, entity_type: Option<&str>) -> Result<()> {
                 }
             }
             "file" => {
-                if let Some(f) = store.get_file_summary_by_path(id).ok().flatten() {
+                if let Some(f) = store.get_file_summary(id)? {
                     println!("[file] {} - {}", f.path, f.summary);
                 } else {
                     println!("[file:{short_id}] (details unavailable)");

@@ -231,8 +231,11 @@ impl EngramServer {
                         }
                     }
                     "file" => {
-                        // Search returns entity_id which is the file summary UUID, not the path
-                        format!("[file:{}]", short_id)
+                        if let Some(f) = store.get_file_summary(id)? {
+                            format!("[file:{}] {} - {}", short_id, f.path, f.summary)
+                        } else {
+                            format!("[file:{}]", short_id)
+                        }
                     }
                     "session" => {
                         if let Some(s) = store.get_session(id)? {
