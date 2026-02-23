@@ -209,6 +209,55 @@ cargo build --release
 cargo test              # 23 tests
 ```
 
+## Releases (GitHub + Homebrew)
+
+Engram ships prebuilt binaries via GitHub Releases for:
+- `aarch64-apple-darwin` (Apple Silicon)
+- `x86_64-apple-darwin` (Intel macOS)
+- `x86_64-unknown-linux-gnu` (Linux)
+
+### 1. Publish a GitHub release from a tag
+
+The workflow at `.github/workflows/release.yml` runs when you push a tag matching `v*`:
+
+```bash
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+It uploads tarballs plus `checksums.txt` to the release.
+
+### 2. Homebrew tap automation
+
+Create a tap repository named `homebrew-tap` under your GitHub account/org (for example `gasmanc/homebrew-tap`) with a `Formula/` folder.
+
+Set these in the main `Engram` repo:
+- `secrets.HOMEBREW_TAP_TOKEN`: PAT with write access to the tap repo
+- Optional `vars.HOMEBREW_TAP_REPO`: override repo name (defaults to `<owner>/homebrew-tap`)
+
+On each published release, `.github/workflows/homebrew-tap.yml` regenerates and pushes:
+- `Formula/engram.rb`
+
+Install with:
+
+```bash
+brew tap <yourname>/tap
+brew install engram
+```
+
+## Publish to crates.io (Optional)
+
+Standard Rust publish flow:
+
+```bash
+# 1) bump version in Cargo.toml
+# 2) verify package contents
+cargo package
+
+# 3) publish (requires CARGO_REGISTRY_TOKEN or prior cargo login)
+cargo publish
+```
+
 ## License
 
 MIT
